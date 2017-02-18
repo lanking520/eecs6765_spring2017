@@ -33,28 +33,37 @@ class mtaUpdates(object):
                 d = feed.ParseFromString(response.read())
         except (urllib2.URLError, google.protobuf.message.DecodeError) as e:
             print "Error while connecting to mta server " +str(e)
-	
 
-	timestamp = feed.header.timestamp
-        nytime = datetime.fromtimestamp(timestamp,self.TIMEZONE)
-	
-	for entity in feed.entity:
+        timestamp = feed.header.timestamp
+        #nytime = datetime.fromtimestamp(timestamp,self.TIMEZONE).replace(microsecond=0)
+
+        for entity in feed.entity:
 	    # Trip update represents a change in timetable
-	    if entity.trip_update and entity.trip_update.trip.trip_id:
-		update = tripupdate.tripupdate()
+            if entity.trip_update and entity.trip_update.trip.trip_id:
+                update = tripupdate.tripupdate()
+                update.tripId = entity.trip_update.trip.trip_id
+                update.routeId = entity.trip_update.trip.route_id
+                update.startDate = entity.trip_update.trip.start_date
+                update.direction = entity.trip_update.trip.trip_id.split(".")[-1][0]
+                d = OrderedDict()
+                for future in entity.trip_update.stop_time_update:
+                    d[str(future.stop_id)] = [{"arrivalTime":future.arrival.time}, {"departureTime": future.departure.time}]
+                update.futureStops = d
+                self.tripUpdates.append([update,timestamp])
+                continue	
 
-		##### INSERT TRIPUPDATE CODE HERE ####	
-
-	    if entity.vehicle and entity.vehicle.trip.trip_id:
-	    	v = vehicle.vehicle()
-
-		##### INSERT VEHICLE CODE HERE #####
+            if entity.vehicle and entity.vehicle.trip.trip_id:
+                v = vehicle.vehicle()
+                v.currentStopNumber = entity.vehicle.current_stop_sequence
+                v.currentStopId = entity.vehicle.stop_id
+                v.timestamp = datetime.fromtimestamp(entity.vehicle.timestamp, self.TIMEZONE)
+                v.currentStopStatus = self.VCS[entity.vehicle.current_status+1]
+                self.tripUpdates[-1][0].vehicleData = v
+                continue
 	    
-	    if entity.alert:
-                a = alert.alert()=
-
-                #### INSERT ALERT CODE HERE #####
-
-	return self.tripUpdates
+            if entity.alert:
+                #a = alert.alert()=
+                 continue
+        return self.tripUpdates
     
     # END OF getTripUpdates method
